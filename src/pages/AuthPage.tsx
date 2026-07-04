@@ -1,10 +1,58 @@
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import etFavicon from "@/assets/ET_Fevicon.png";
+import { supabase } from "@/lib/supabase";
 
-export function AuthPage({ onLogin }: { onLogin: () => void }) {
+export function AuthPage() {
   const [mode, setMode] = useState<"main" | "otp">("main");
   const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+ const handleGoogleLogin = async () => {
+  setError(null);
+
+  console.log("Redirect:", window.location.origin);
+
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: window.location.origin,
+    },
+  });
+
+  if (error) {
+    setError(error.message);
+  }
+};
+  const handleSendOtp = async () => {
+    if (!email) return;
+    setLoading(true);
+    setError(null);
+    const { error } = await supabase.auth.signInWithOtp({ email });
+    setLoading(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setMode("otp");
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!code) return;
+    setLoading(true);
+    setError(null);
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token: code,
+      type: "email",
+    });
+    setLoading(false);
+    if (error) setError(error.message);
+    // On success, supabase.auth.onAuthStateChange() in App.tsx picks up the
+    // new session and switches the app out of AuthPage automatically.
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-blue-50 flex items-center justify-center p-4">
@@ -23,7 +71,7 @@ export function AuthPage({ onLogin }: { onLogin: () => void }) {
               <h2 className="text-lg font-bold text-gray-900 mb-6 font-display">Sign in to continue</h2>
 
               <button
-                onClick={onLogin}
+                onClick={handleGoogleLogin}
                 className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 hover:bg-gray-50 transition text-sm font-medium text-gray-700 mb-4"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24">
@@ -49,11 +97,13 @@ export function AuthPage({ onLogin }: { onLogin: () => void }) {
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300 focus:border-transparent transition"
                 />
+                {error && <p className="text-xs text-red-500">{error}</p>}
                 <button
-                  onClick={() => email && setMode("otp")}
-                  className="w-full bg-teal-500 text-white rounded-xl py-3 text-sm font-semibold hover:bg-teal-600 transition"
+                  onClick={handleSendOtp}
+                  disabled={!email || loading}
+                  className="w-full bg-teal-500 text-white rounded-xl py-3 text-sm font-semibold hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
                 >
-                  Send OTP
+                  {loading ? "Sending..." : "Send OTP"}
                 </button>
               </div>
 
@@ -64,7 +114,7 @@ export function AuthPage({ onLogin }: { onLogin: () => void }) {
           ) : (
             <>
               <button
-                onClick={() => setMode("main")}
+                onClick={() => { setMode("main"); setError(null); }}
                 className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-5 transition"
               >
                 <ArrowLeft className="w-4 h-4" /> Back
@@ -78,15 +128,23 @@ export function AuthPage({ onLogin }: { onLogin: () => void }) {
                 type="text"
                 placeholder="000000"
                 maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-center text-2xl tracking-widest focus:outline-none focus:ring-2 focus:ring-teal-300 focus:border-transparent transition mb-4"
               />
+              {error && <p className="text-xs text-red-500 mb-4 -mt-2">{error}</p>}
               <button
-                onClick={onLogin}
-                className="w-full bg-teal-500 text-white rounded-xl py-3 text-sm font-semibold hover:bg-teal-600 transition"
+                onClick={handleVerifyOtp}
+                disabled={!code || loading}
+                className="w-full bg-teal-500 text-white rounded-xl py-3 text-sm font-semibold hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
               >
-                Verify & Sign In
+                {loading ? "Verifying..." : "Verify & Sign In"}
               </button>
-              <button className="w-full mt-3 text-sm text-gray-500 hover:text-gray-700 transition">
+              <button
+                onClick={handleSendOtp}
+                disabled={loading}
+                className="w-full mt-3 text-sm text-gray-500 hover:text-gray-700 transition"
+              >
                 Resend code
               </button>
             </>

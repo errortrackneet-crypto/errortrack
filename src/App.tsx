@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 import { Sidebar, MobileHeader, BottomNav } from "@/components/Navigation";
 import { AuthPage } from "@/pages/AuthPage";
 import { HomePage } from "@/pages/HomePage";
@@ -12,19 +14,40 @@ import { SubscriptionPage } from "@/pages/SubscriptionPage";
 import type { Page } from "@/types";
 
 export default function App() {
-  const [authed, setAuthed] = useState(false);
+  // `undefined` = still checking for a session, `null` = checked, no session
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [isPremium, setIsPremium] = useState(false);
   const [page, setPage] = useState<Page>("home");
   const [prevPage, setPrevPage] = useState<Page>("home");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+
+  useEffect(() => {
+    // Restore the session on load (keeps the user logged in after a refresh)
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+
+    // Keep session state in sync with sign-in, sign-out, and token refresh events
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
 
   const navigate = (p: Page) => {
     setPrevPage(page);
     setPage(p);
   };
 
-  if (!authed) {
-    return <AuthPage onLogin={() => setAuthed(true)} />;
+  if (session === undefined) {
+    return (
+      <div className="min-h-screen bg-background font-body flex items-center justify-center">
+        <p className="text-sm text-gray-400">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <AuthPage />;
   }
 
   const startQuestion = () => navigate("question");
@@ -60,9 +83,7 @@ export default function App() {
           {page === "saved" && <SavedPage onStartPractice={startQuestion} />}
           {page === "tests" && <TestsPage />}
           {page === "stats" && <StatsPage />}
-          {page === "profile" && (
-            <ProfilePage isPremium={isPremium} onNav={navigate} onLogout={() => setAuthed(false)} />
-          )}
+          {page === "profile" && <ProfilePage isPremium={isPremium} onNav={navigate} />}
           {page === "subscription" && (
             <SubscriptionPage
               isPremium={isPremium}
