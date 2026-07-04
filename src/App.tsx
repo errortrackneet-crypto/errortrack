@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { ensureProfile } from "@/lib/profile";
+
 import { Sidebar, MobileHeader, BottomNav } from "@/components/Navigation";
 import { AuthPage } from "@/pages/AuthPage";
 import { HomePage } from "@/pages/HomePage";
@@ -11,26 +13,47 @@ import { TestsPage } from "@/pages/TestsPage";
 import { StatsPage } from "@/pages/StatsPage";
 import { ProfilePage } from "@/pages/ProfilePage";
 import { SubscriptionPage } from "@/pages/SubscriptionPage";
+
 import type { Page } from "@/types";
 
 export default function App() {
-  // `undefined` = still checking for a session, `null` = checked, no session
+  // undefined = checking session
+  // null = not logged in
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+
   const [isPremium, setIsPremium] = useState(false);
   const [page, setPage] = useState<Page>("home");
   const [prevPage, setPrevPage] = useState<Page>("home");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
   useEffect(() => {
-    // Restore the session on load (keeps the user logged in after a refresh)
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    // Restore existing session
+    const loadSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    // Keep session state in sync with sign-in, sign-out, and token refresh events
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
+      setSession(session);
+
+      if (session) {
+        await ensureProfile();
+      }
+    };
+
+    loadSession();
+
+    // Listen for login/logout
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+
+      if (session) {
+        await ensureProfile();
+      }
     });
 
-    return () => listener.subscription.unsubscribe();
+    return () => subscription.unsubscribe();
   }, []);
 
   const navigate = (p: Page) => {
@@ -38,6 +61,21 @@ export default function App() {
     setPage(p);
   };
 
+  const startQuestion = () => navigate("question");
+
+  const backFromQuestion = () =>
+    navigate(prevPage === "question" ? "practice" : prevPage);
+
+  const handleSubscribe = () => {
+    setIsPremium(true);
+    navigate("home");
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  // Loading...
   if (session === undefined) {
     return (
       <div className="min-h-screen bg-background font-body flex items-center justify-center">
@@ -46,18 +84,12 @@ export default function App() {
     );
   }
 
+  // Not logged in
   if (!session) {
     return <AuthPage />;
   }
 
-  const startQuestion = () => navigate("question");
-  const backFromQuestion = () => navigate(prevPage === "question" ? "practice" : prevPage);
-
-  const handleSubscribe = () => {
-    setIsPremium(true);
-    navigate("home");
-  };
-
+  // Logged in
   return (
     <div className="min-h-screen bg-background font-body">
       <Sidebar
@@ -74,16 +106,47 @@ export default function App() {
         }`}
       >
         <MobileHeader />
+
         <div className="max-w-4xl mx-auto px-4 py-6 lg:px-8">
-          {page === "home" && <HomePage isPremium={isPremium} onNav={navigate} />}
-          {page === "practice" && (
-            <PracticePage isPremium={isPremium} onStartQuestion={startQuestion} onNav={navigate} />
+          {page === "home" && (
+            <HomePage
+              isPremium={isPremium}
+              onNav={navigate}
+            />
           )}
-          {page === "question" && <QuestionPage onBack={backFromQuestion} />}
-          {page === "saved" && <SavedPage onStartPractice={startQuestion} />}
+
+          {page === "practice" && (
+            <PracticePage
+              isPremium={isPremium}
+              onStartQuestion={startQuestion}
+              onNav={navigate}
+            />
+          )}
+
+          {page === "question" && (
+            <QuestionPage
+              onBack={backFromQuestion}
+            />
+          )}
+
+          {page === "saved" && (
+            <SavedPage
+              onStartPractice={startQuestion}
+            />
+          )}
+
           {page === "tests" && <TestsPage />}
+
           {page === "stats" && <StatsPage />}
-          {page === "profile" && <ProfilePage isPremium={isPremium} onNav={navigate} />}
+
+          {page === "profile" && (
+            <ProfilePage
+              isPremium={isPremium}
+              onNav={navigate}
+              onLogout={handleLogout}
+            />
+          )}
+
           {page === "subscription" && (
             <SubscriptionPage
               isPremium={isPremium}
@@ -94,7 +157,10 @@ export default function App() {
         </div>
       </main>
 
-      <BottomNav page={page} onNav={navigate} />
+      <BottomNav
+        page={page}
+        onNav={navigate}
+      />
     </div>
   );
 }
