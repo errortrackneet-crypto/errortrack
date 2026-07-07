@@ -17,18 +17,43 @@ import { SubscriptionPage } from "@/pages/SubscriptionPage";
 import type { Page } from "@/types";
 
 export default function App() {
-  // undefined = checking session
-  // null = not logged in
   const [session, setSession] = useState<Session | null | undefined>(undefined);
 
+  const [userName, setUserName] = useState("Student");
   const [isPremium, setIsPremium] = useState(false);
+
   const [page, setPage] = useState<Page>("home");
   const [prevPage, setPrevPage] = useState<Page>("home");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
 
+  async function loadUserName() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setUserName("Student");
+      return;
+    }
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const name =
+      data?.full_name?.trim() ||
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      user.email?.split("@")[0] ||
+      "Student";
+
+    setUserName(name);
+  }
+
   useEffect(() => {
-    // Restore existing session
-    const loadSession = async () => {
+    async function restoreSession() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -37,12 +62,12 @@ export default function App() {
 
       if (session) {
         await ensureProfile();
+        await loadUserName();
       }
-    };
+    }
 
-    loadSession();
+    restoreSession();
 
-    // Listen for login/logout
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
@@ -50,6 +75,9 @@ export default function App() {
 
       if (session) {
         await ensureProfile();
+        await loadUserName();
+      } else {
+        setUserName("Student");
       }
     });
 
@@ -75,7 +103,6 @@ export default function App() {
     await supabase.auth.signOut();
   };
 
-  // Loading...
   if (session === undefined) {
     return (
       <div className="min-h-screen bg-background font-body flex items-center justify-center">
@@ -84,12 +111,10 @@ export default function App() {
     );
   }
 
-  // Not logged in
   if (!session) {
     return <AuthPage />;
   }
 
-  // Logged in
   return (
     <div className="min-h-screen bg-background font-body">
       <Sidebar
@@ -112,6 +137,7 @@ export default function App() {
             <HomePage
               isPremium={isPremium}
               onNav={navigate}
+              userName={userName}
             />
           )}
 
@@ -124,15 +150,11 @@ export default function App() {
           )}
 
           {page === "question" && (
-            <QuestionPage
-              onBack={backFromQuestion}
-            />
+            <QuestionPage onBack={backFromQuestion} />
           )}
 
           {page === "saved" && (
-            <SavedPage
-              onStartPractice={startQuestion}
-            />
+            <SavedPage onStartPractice={startQuestion} />
           )}
 
           {page === "tests" && <TestsPage />}
@@ -157,10 +179,7 @@ export default function App() {
         </div>
       </main>
 
-      <BottomNav
-        page={page}
-        onNav={navigate}
-      />
+      <BottomNav page={page} onNav={navigate} />
     </div>
   );
 }

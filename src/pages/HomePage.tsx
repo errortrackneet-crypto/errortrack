@@ -14,9 +14,11 @@ import type { Page } from "@/types";
 export function HomePage({
   isPremium,
   onNav,
+  userName,
 }: {
   isPremium: boolean;
   onNav: (p: Page) => void;
+  userName: string;
 }) {
   const handleNcertClick = () => {
     if (!isPremium) {
@@ -33,7 +35,7 @@ export function HomePage({
         <div className="flex items-start justify-between">
           <div>
             <p className="text-teal-100 text-sm">Good morning,</p>
-            <h1 className="text-2xl font-bold font-display mt-0.5">Hi, Arjun! 👋</h1>
+            <h1 className="text-2xl font-bold font-display mt-0.5"> Hi, {userName}!👋</h1>
             <p className="text-teal-100 text-sm mt-1">Ready to crack NEET today?</p>
           </div>
           <div className="flex flex-col items-center bg-white/20 rounded-2xl px-4 py-3 backdrop-blur-sm">
