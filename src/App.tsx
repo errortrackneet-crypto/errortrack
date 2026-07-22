@@ -163,7 +163,6 @@ export default function App() {
 
           {page === "profile" && (
             <ProfilePage
-              isPremium={isPremium}
               onNav={navigate}
               onLogout={handleLogout}
             />
