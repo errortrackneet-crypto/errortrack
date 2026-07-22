@@ -9,9 +9,12 @@ export interface Subject {
 export interface Chapter {
   id?: number;
   subject_id: number;
+  class: number;
   name: string;
   display_order: number;
   is_active: boolean;
+  created_at?: string;
+
   subjects?: {
     name: string;
   } | null;
@@ -27,7 +30,7 @@ export function useChapters() {
     const { data, error } = await supabase
       .from("subjects")
       .select("*")
-      .order("id");
+      .order("display_order");
 
     if (error) {
       console.error(error);
@@ -46,30 +49,49 @@ export function useChapters() {
         subjects(name)
       `
       )
-      .order("display_order");
+      .order("class", { ascending: true })
+      .order("display_order", { ascending: true });
 
     if (error) {
       console.error(error);
       return;
     }
 
-    setChapters(data as Chapter[]);
+    setChapters((data as Chapter[]) || []);
   }
 
   async function refresh() {
     setLoading(true);
 
-    await loadSubjects();
-    await loadChapters();
+    await Promise.all([
+      loadSubjects(),
+      loadChapters(),
+    ]);
 
     setLoading(false);
   }
 
   async function addChapter(chapter: Chapter) {
+    const { data: existing } = await supabase
+      .from("chapters")
+      .select("id")
+      .eq("subject_id", chapter.subject_id)
+      .eq("class", chapter.class)
+      .ilike("name", chapter.name)
+      .maybeSingle();
+
+    if (existing) {
+      alert(
+        "A chapter with the same name already exists for this subject and class."
+      );
+      return false;
+    }
+
     const { error } = await supabase
       .from("chapters")
       .insert({
         subject_id: chapter.subject_id,
+        class: chapter.class,
         name: chapter.name,
         display_order: chapter.display_order,
         is_active: chapter.is_active,
@@ -77,7 +99,13 @@ export function useChapters() {
 
     if (error) {
       console.error(error);
-      alert(error.message);
+
+      if (error.message.includes("chapters_unique")) {
+        alert("This chapter already exists.");
+      } else {
+        alert(error.message);
+      }
+
       return false;
     }
 
@@ -89,10 +117,27 @@ export function useChapters() {
   async function updateChapter(chapter: Chapter) {
     if (!chapter.id) return false;
 
+    const { data: existing } = await supabase
+      .from("chapters")
+      .select("id")
+      .eq("subject_id", chapter.subject_id)
+      .eq("class", chapter.class)
+      .ilike("name", chapter.name)
+      .neq("id", chapter.id)
+      .maybeSingle();
+
+    if (existing) {
+      alert(
+        "A chapter with the same name already exists for this subject and class."
+      );
+      return false;
+    }
+
     const { error } = await supabase
       .from("chapters")
       .update({
         subject_id: chapter.subject_id,
+        class: chapter.class,
         name: chapter.name,
         display_order: chapter.display_order,
         is_active: chapter.is_active,
@@ -101,7 +146,13 @@ export function useChapters() {
 
     if (error) {
       console.error(error);
-      alert(error.message);
+
+      if (error.message.includes("chapters_unique")) {
+        alert("This chapter already exists.");
+      } else {
+        alert(error.message);
+      }
+
       return false;
     }
 
@@ -111,7 +162,7 @@ export function useChapters() {
   }
 
   async function deleteChapter(id: number) {
-    const ok = confirm(
+    const ok = window.confirm(
       "Are you sure you want to delete this chapter?"
     );
 
@@ -137,8 +188,8 @@ export function useChapters() {
 
   return {
     loading,
-    chapters,
     subjects,
+    chapters,
 
     addChapter,
     updateChapter,

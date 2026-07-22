@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
   BookOpen,
@@ -21,14 +22,42 @@ export default function AdminLayout({
   children,
 }: AdminLayoutProps) {
   const menu = [
-    { icon: LayoutDashboard, name: "Dashboard" },
-    { icon: BookOpen, name: "Questions" },
-    { icon: FolderOpen, name: "Chapters" },
-    { icon: ListTree, name: "Topics" },
-    { icon: FileText, name: "Tests" },
-    { icon: Users, name: "Users" },
-    { icon: Settings, name: "Settings" },
-  ];
+  {
+    icon: LayoutDashboard,
+    name: "Dashboard",
+    path: "/admin",
+  },
+  {
+    icon: BookOpen,
+    name: "Questions",
+    path: "/admin/questions",
+  },
+  {
+    icon: FolderOpen,
+    name: "Chapters",
+    path: "/admin/chapters",
+  },
+  {
+    icon: ListTree,
+    name: "Topics",
+    path: "/admin/topics",
+  },
+  {
+    icon: FileText,
+    name: "Tests",
+    path: "/admin/tests",
+  },
+  {
+    icon: Users,
+    name: "Users",
+    path: "/admin/users",
+  },
+  {
+    icon: Settings,
+    name: "Settings",
+    path: "/admin/settings",
+  },
+];
 
   return (
     <div className="min-h-screen bg-slate-100 flex">
@@ -46,13 +75,20 @@ export default function AdminLayout({
             const Icon = item.icon;
 
             return (
-              <button
-                key={item.name}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/10 transition"
-              >
-                <Icon size={20} />
-                <span>{item.name}</span>
-              </button>
+              <NavLink
+  key={item.name}
+  to={item.path}
+  className={({ isActive }) =>
+    `w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+      isActive
+        ? "bg-teal-500 text-white"
+        : "hover:bg-white/10"
+    }`
+  }
+>
+  <Icon size={20} />
+  <span>{item.name}</span>
+</NavLink>
             );
           })}
         </nav>

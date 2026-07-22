@@ -1,4 +1,6 @@
 import AdminLayout from "../layouts/AdminLayout";
+import { toast } from "sonner"; 
+
 import {
   Users,
   BookOpen,
@@ -50,6 +52,14 @@ const cards = [
 export default function Dashboard() {
   return (
     <AdminLayout title="Dashboard">
+
+      <button
+  onClick={() => toast.success("Sonner is working!")}
+  className="rounded bg-green-500 px-4 py-2 text-white"
+>
+  Test Toast
+</button>
+
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {cards.map((card) => {
           const Icon = card.icon;
